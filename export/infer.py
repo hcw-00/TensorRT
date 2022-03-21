@@ -134,10 +134,10 @@ class TensorRTInfer:
                 if nms_threshold and scores[i][n] < nms_threshold:
                     continue
                 detections[i].append({
-                    'ymin': boxes[i][n][0] * scale,
-                    'xmin': boxes[i][n][1] * scale,
-                    'ymax': boxes[i][n][2] * scale,
-                    'xmax': boxes[i][n][3] * scale,
+                    'xmin': boxes[i][n][0] * scale, #boxes[i][n][1] * scale,
+                    'ymin': boxes[i][n][1] * scale, #boxes[i][n][0] * scale,
+                    'xmax': boxes[i][n][2] * scale, #boxes[i][n][3] * scale,
+                    'ymax': boxes[i][n][3] * scale, #boxes[i][n][2] * scale,
                     'score': scores[i][n],
                     'class': int(classes[i][n]),
                 })
