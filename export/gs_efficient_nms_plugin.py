@@ -8,9 +8,7 @@ import logging
 import onnx_graphsurgeon as gs
 import numpy as np
 import onnx
-# import onnx_utils
-
-
+import onnx_utils
 
 def add_efficient_nms_plugin(args):
     onnx_path = args.onnx_path
@@ -21,7 +19,7 @@ def add_efficient_nms_plugin(args):
     graph = gs.import_onnx(onnx.load(onnx_path))
 
     # define input
-    import pdb;pdb.set_trace()
+    #import pdb;pdb.set_trace()
     box_net_tensor = graph.tensors()['box_delta']
     pred_scores_tensor = graph.tensors()['pred_logits']
     anchors_tensor = graph.tensors()['anchors']
