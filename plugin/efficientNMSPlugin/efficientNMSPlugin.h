@@ -28,10 +28,10 @@ namespace nvinfer1
 namespace plugin
 {
 
-class EfficientNMSPlugin : public IPluginV2DynamicExt
+class EfficientNMSPlugin : public IPluginV2DynamicExt // parent : IPluginV2DynamicExt
 {
 public:
-    explicit EfficientNMSPlugin(EfficientNMSParameters param);
+    explicit EfficientNMSPlugin(EfficientNMSParameters param); // limit type conversion
     EfficientNMSPlugin(const void* data, size_t length);
     ~EfficientNMSPlugin() override = default;
 

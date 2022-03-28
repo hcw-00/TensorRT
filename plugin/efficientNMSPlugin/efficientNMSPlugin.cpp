@@ -37,10 +37,11 @@ EfficientNMSPlugin::EfficientNMSPlugin(EfficientNMSParameters param)
 }
 
 EfficientNMSPlugin::EfficientNMSPlugin(const void* data, size_t length)
+// if not d == a + length, report assertion
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     mParam = read<EfficientNMSParameters>(d);
-    ASSERT(d == a + length);
+    ASSERT(d == a + length); 
 }
 
 const char* EfficientNMSPlugin::getPluginType() const noexcept
@@ -55,7 +56,7 @@ const char* EfficientNMSPlugin::getPluginVersion() const noexcept
 
 int EfficientNMSPlugin::getNbOutputs() const noexcept
 {
-    if (mParam.outputONNXIndices)
+    if (mParam.outputONNXIndices) // default : false
     {
         // ONNX NonMaxSuppression Compatibility
         return 1;
@@ -224,6 +225,10 @@ bool EfficientNMSPlugin::supportsFormatCombination(
     int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept
 {
     if (inOut[pos].format != PluginFormat::kLINEAR)
+    //! Row major linear format.
+    //! For a tensor with dimensions {N, C, H, W} or {numbers, channels,
+    //! columns, rows}, the dimensional index corresponds to {3, 2, 1, 0}
+    //! and thus the order is W minor.
     {
         return false;
     }
@@ -271,6 +276,7 @@ bool EfficientNMSPlugin::supportsFormatCombination(
 
 void EfficientNMSPlugin::configurePlugin(
     const DynamicPluginTensorDesc* in, int nbInputs, const DynamicPluginTensorDesc* out, int nbOutputs) noexcept
+// DynamicPluginTensorDesc : Summarizes tensors that a plugin might see for an input or output.
 {
     try
     {

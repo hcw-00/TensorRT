@@ -27,7 +27,7 @@ float __device__ __inline__ exp_mp(const float a)
 }
 float __device__ __inline__ sigmoid_mp(const float a)
 {
-    return __frcp_rn(__fadd_rn(1.f, __expf(-a)));
+    return __frcp_rn(__fadd_rn(1.f, __expf(-a))); // __frcp_rn : compute 1/x
 }
 float __device__ __inline__ add_mp(const float a, const float b)
 {
@@ -143,7 +143,7 @@ bool __device__ __inline__ gte_mp(const __half a, const __half b)
 #endif
 
 template <typename T>
-struct __align__(4 * sizeof(T)) BoxCorner;
+struct __align__(4 * sizeof(T)) BoxCorner; // CUDA version of __attribute__((aligned(n)))
 
 template <typename T>
 struct __align__(4 * sizeof(T)) BoxCenterSize;
@@ -166,16 +166,17 @@ struct __align__(4 * sizeof(T)) BoxCorner
         if (gt_mp(x1, x2))
         {
             // Swap values, so x1 < x2
-            x1 = sub_mp(x1, x2);
-            x2 = add_mp(x1, x2);
-            x1 = sub_mp(x2, x1);
+            x1 = sub_mp(x1, x2); // x1 <- x1 - x2
+            x2 = add_mp(x1, x2); // x2 <- (x1 - x2) + x2 = x1
+            x1 = sub_mp(x2, x1); // x1 <- x1 - (x1 - x2) = x2
         }
     }
 
     __device__ BoxCorner<T> clip(T low, T high) const
     {
-        return {lt_mp(y1, low) ? low : (gt_mp(y1, high) ? high : y1),
-            lt_mp(x1, low) ? low : (gt_mp(x1, high) ? high : x1), lt_mp(y2, low) ? low : (gt_mp(y2, high) ? high : y2),
+        return {lt_mp(y1, low) ? low : (gt_mp(y1, high) ? high : y1), // if y1 < low return low elif y1 > high return high else y1 
+            lt_mp(x1, low) ? low : (gt_mp(x1, high) ? high : x1),
+            lt_mp(y2, low) ? low : (gt_mp(y2, high) ? high : y2),
             lt_mp(x2, low) ? low : (gt_mp(x2, high) ? high : x2)};
     }
 
@@ -245,7 +246,7 @@ struct __align__(4 * sizeof(T)) BoxCenterSize
         return (float) h * (float) w;
     }
 
-    __device__ operator BoxCorner<T>() const
+    __device__ operator BoxCorner<T>() const // ?
     {
         T h2 = mul_mp(h, (T) 0.5);
         T w2 = mul_mp(w, (T) 0.5);
