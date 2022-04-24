@@ -58,6 +58,7 @@ using namespace nvinfer1::plugin;
 #include "scatterPlugin.h"
 #include "specialSlicePlugin.h"
 #include "split.h"
+#include "testPlugin.h"
 #include "voxelGenerator.h"
 
 using nvinfer1::plugin::RPROIParams;
@@ -205,6 +206,7 @@ extern "C"
         initializePlugin<nvinfer1::plugin::SpecialSlicePluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SplitPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::VoxelGeneratorPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::TestPluginCreator>(logger, libNamespace);
         return true;
     }
 } // extern "C"
