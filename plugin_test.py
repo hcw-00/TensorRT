@@ -3,7 +3,7 @@ import tensorrt as trt
 import numpy as np
 import torch
 
-LIB_PATH = "/workspace/trt_study/TensorRT/build/out/libnvinfer_plugin.so"
+LIB_PATH = "/workspace/TensorRT/build/out/libnvinfer_plugin.so"
 ctypes.CDLL(LIB_PATH)
 TRT_LOGGER = trt.Logger()
 trt.init_libnvinfer_plugins(TRT_LOGGER, "")

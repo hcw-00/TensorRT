@@ -35,6 +35,9 @@ typedef enum
     NC32HW = 2
 } DLayout_t;
 
+pluginStatus_t testInference(
+    cudaStream_t stream, const int n, const float coefficient, const void* input, void* output);
+
 pluginStatus_t allClassNMS(cudaStream_t stream, int num, int num_classes, int num_preds_per_class, int top_k,
     float nms_threshold, bool share_location, bool isNormalized, DataType DT_SCORE, DataType DT_BBOX, void* bbox_data,
     void* beforeNMS_scores, void* beforeNMS_index_array, void* afterNMS_scores, void* afterNMS_index_array, bool flipXY,
@@ -113,6 +116,8 @@ pluginStatus_t priorBoxInference(cudaStream_t stream, PriorBoxParameters param, 
     int numAspectRatios, const void* minSize, const void* maxSize, const void* aspectRatios, void* outputData);
 
 pluginStatus_t lReLUInference(cudaStream_t stream, int n, float negativeSlope, const void* input, void* output);
+
+pluginStatus_t lReLUTestInference(cudaStream_t stream, int n, float negativeSlope, const void* input, void* output);
 
 pluginStatus_t reorgInference(
     cudaStream_t stream, int batch, int C, int H, int W, int stride, const void* input, void* output);
