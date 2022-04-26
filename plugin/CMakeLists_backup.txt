@@ -44,6 +44,7 @@ set(PLUGIN_LISTS
     groupNormalizationPlugin
     instanceNormalizationPlugin
     leakyReluPlugin
+    leakyReluTestPlugin
     multilevelCropAndResizePlugin
     multilevelProposeROI
     nmsPlugin

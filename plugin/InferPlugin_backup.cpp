@@ -42,6 +42,7 @@ using namespace nvinfer1::plugin;
 #include "groupNormalizationPlugin.h"
 #include "instanceNormalizationPlugin.h"
 #include "lReluPlugin.h"
+#include "lReluTestPlugin.h"
 #include "multilevelCropAndResizePlugin.h"
 #include "multilevelProposeROIPlugin.h"
 #include "nmsPlugin.h"
@@ -186,6 +187,7 @@ extern "C"
         initializePlugin<nvinfer1::plugin::GridAnchorRectPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::InstanceNormalizationPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::LReluPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::LReluTestPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::MultilevelCropAndResizePluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::MultilevelProposeROIPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::NMSPluginCreator>(logger, libNamespace);
