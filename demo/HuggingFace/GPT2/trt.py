@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,9 +25,11 @@ if __name__ == "__main__":
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
-
 # numpy
 import numpy as np
+
+# polygraphy
+from polygraphy.backend.trt import Profile
 
 # torch
 import torch
@@ -108,7 +111,6 @@ class GPT2TRTDecoder(TRTHFRunner):
     ):
         super().__init__(trt_engine_file, network_metadata, hf_config, batch_size)
         self.max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[network_metadata.variant]
-        assert len(trt_engine_file.get_dynamic_shape_profiles()) == 1, "GPT2 should only have one dynamic shapes profile."
 
         # We only have one profile to select so we can just grab the profile at the start of the class
         self.profile_idx = self.get_optimization_profile(batch_size=batch_size, sequence_length=1)
@@ -252,7 +254,20 @@ class GPT2Polygraphy(TRTInferenceCommand):
                 GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME
             ].fpath
 
-            self.gpt2_engine = GPT2ONNXFile(gpt2_onnx_fpath, metadata).as_trt_engine(gpt2_onnx_fpath + ".engine")
+            # Generate optimization profiles.
+            max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
+            profiles = [Profile().add(
+                "input_ids",
+                min=(batch_size, 1),
+                opt=(batch_size, max_sequence_length // 2),
+                max=(batch_size, max_sequence_length),
+            )]
+
+            # Build the engine.
+            self.gpt2_engine = GPT2ONNXFile(gpt2_onnx_fpath, metadata).as_trt_engine(
+                gpt2_onnx_fpath + ".engine",
+                profiles=profiles,
+            )
             tfm_config = GPT2Config(
                 use_cache=metadata.other.kv_cache,
             )

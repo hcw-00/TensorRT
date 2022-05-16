@@ -18,7 +18,7 @@ ARG OS_VERSION=7
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.2.3.0
+ENV TRT_VERSION 8.2.5.1
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -60,6 +60,11 @@ else \
         libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
         python3-libnvinfer-${v}; \
 fi 
+
+# Install dev-toolset-8 for g++ version that supports c++14
+RUN yum -y install centos-release-scl
+RUN yum-config-manager --enable rhel-server-rhscl-7-rpms
+RUN yum -y install devtoolset-8
 
 # Install dev-toolset-8 for g++ version that supports c++14
 RUN yum -y install centos-release-scl

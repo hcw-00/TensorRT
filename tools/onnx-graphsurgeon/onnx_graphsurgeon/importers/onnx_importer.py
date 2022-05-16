@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -192,6 +193,8 @@ class OnnxImporter(BaseImporter):
         tensor_map: "OrderedDict[str, Tensor]" = None,
         opset=None,
         import_domains: onnx.OperatorSetIdProto = None,
+        producer_name: str = None,
+        producer_version: str = None,
     ) -> Graph:
         """
         Imports a Graph from an ONNX Graph.
@@ -201,6 +204,8 @@ class OnnxImporter(BaseImporter):
 
             tensor_map (OrderedDict[str, Tensor]): A mapping of tensor names to Tensors. This is generally only useful for subgraph import.
             opset (int): The ONNX opset to use for this graph.
+            producer_name (str): The name of the tool used to generate the model. Defaults to "".
+            producer_version (str): The version of the generating tool. Defaults to "".
         """
         tensor_map = copy.copy(misc.default_value(tensor_map, OrderedDict()))  # Outer graph tensors, read-only
         subgraph_tensor_map = OrderedDict()  # Tensors in this subgraph
@@ -270,6 +275,8 @@ class OnnxImporter(BaseImporter):
             outputs=graph_outputs,
             name=onnx_graph.name,
             doc_string=onnx_graph.doc_string,
+            producer_name=producer_name,
+            producer_version=producer_version,
             opset=opset,
             import_domains=import_domains,
         )
@@ -289,4 +296,6 @@ def import_onnx(onnx_model: "onnx.ModelProto") -> Graph:
         onnx_model.graph,
         opset=OnnxImporter.get_opset(onnx_model),
         import_domains=OnnxImporter.get_import_domains(onnx_model),
+        producer_name=onnx_model.producer_name,
+        producer_version=onnx_model.producer_version,
     )

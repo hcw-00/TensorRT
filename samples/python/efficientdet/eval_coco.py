@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,7 +40,7 @@ def main(args):
     evaluator = coco_metric.EvaluationMetric(filename=args.annotations)
     for batch, images, scales in batcher.get_batch():
         print("Processing Image {} / {}".format(batcher.image_index, batcher.num_images), end="\r")
-        detections = trt_infer.infer(batch, scales, args.nms_threshold)
+        detections = trt_infer.process(batch, scales, args.nms_threshold)
         coco_det = np.zeros((len(images), max([len(d) for d in detections]), 7))
         coco_det[:, :, -1] = -1
         for i in range(len(images)):

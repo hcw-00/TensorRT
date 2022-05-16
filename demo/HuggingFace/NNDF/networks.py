@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,6 +36,12 @@ NetworkResult = namedtuple(
     ["input", "output_tensor", "semantic_output", "median_runtime", "models"],
 )
 
+"""BenchmarkingResult(median_runtime: NetworkRuntime, models: [str])"""
+BenchmarkingResult = namedtuple(
+    "BenchmarkingResult",
+    ["median_runtime", "models"],
+)
+
 """CheckpointResult(network_results: List[NetworkResult], accuracy: float)"""
 NetworkCheckpointResult = namedtuple(
     "NetworkCheckpointResult", ["network_results", "accuracy"]
@@ -48,7 +55,7 @@ Precision = namedtuple("Precision", ["fp16"])
 NetworkMetadata = namedtuple("NetworkMetadata", ["variant", "precision", "other"])
 
 """TimingProfile(iterations: int, repeat: int)"""
-TimingProfile = namedtuple("TimingProfile", ["iterations", "number", "warmup"])
+TimingProfile = namedtuple("TimingProfile", ["iterations", "number", "warmup", "duration"])
 
 
 """NetworkModel(name: str, fpath: str)"""

@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +20,7 @@ Contains logic that captures T5 HuggingFace models into ONNX models.
 Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
 """
 
-from itertools import islice
+from typing import List
 
 # tensorrt
 import tensorrt as trt
@@ -176,30 +177,11 @@ class T5DecoderONNXFile(ONNXModelFile):
 class T5DecoderTRTEngine(TRTEngineFile):
     DEFAULT_TRT_WORKSPACE_MB = 3072
 
-    def __init__(self, model, network_metadata, batch_size = 1):
-        super().__init__(model, T5DecoderConverter, network_metadata, batch_size = batch_size)
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5DecoderConverter, network_metadata)
 
     def get_network_definition(self, network_definition):
         return add_extra_fp32(network_definition)
-
-    def get_dynamic_shape_profiles(self):
-        max_sequence_length = T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[
-            self.network_metadata.variant
-        ]
-        profile = Profile()
-        profile.add(
-            "input_ids",
-            min=(self.batch_size, 1),
-            opt=(self.batch_size, max_sequence_length // 2),
-            max=(self.batch_size, max_sequence_length),
-        )
-        profile.add(
-            "encoder_hidden_states",
-            min=(self.batch_size, 1, max_sequence_length),
-            opt=(self.batch_size, max_sequence_length // 2, max_sequence_length),
-            max=(self.batch_size, max_sequence_length, max_sequence_length),
-        )
-        return [profile]
 
     def use_obey_precision_constraints(self):
         return self.network_metadata.precision.fp16
@@ -208,25 +190,11 @@ class T5DecoderTRTEngine(TRTEngineFile):
 class T5EncoderTRTEngine(TRTEngineFile):
     DEFAULT_TRT_WORKSPACE_MB = 2048
 
-    def __init__(self, model, network_metadata, batch_size = 1):
-        super().__init__(model, T5EncoderConverter, network_metadata, batch_size = batch_size)
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5EncoderConverter, network_metadata)
 
     def get_network_definition(self, network_definition):
         return add_extra_fp32(network_definition)
-
-    def get_dynamic_shape_profiles(self):
-        max_sequence_length = T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[
-            self.network_metadata.variant
-        ]
-
-        return [
-            Profile().add(
-                "input_ids",
-                min=(self.batch_size, 1),
-                opt=(self.batch_size, max_sequence_length // 2),
-                max=(self.batch_size, max_sequence_length),
-            )
-        ]
 
     def use_obey_precision_constraints(self):
         return self.network_metadata.precision.fp16
@@ -271,6 +239,13 @@ class T5DecoderConverter(ModelFileConverter):
         inputs = T5ModelTRTConfig.get_input_dims(network_metadata)["decoder"]
         outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["decoder"]
 
+        # Exports to ONNX
+        opt_args={}
+
+        version_major = int((torch.__version__).split('.')[0])
+        version_minor = int((torch.__version__).split('.')[1])
+        if version_major < 1 or (version_major == 1 and version_minor < 11):
+            opt_args['use_external_data_format'] = True
         torch.onnx.export(
             decoder_with_lm_head,
             (input_ids, simplified_encoder(input_ids)),
@@ -284,8 +259,9 @@ class T5DecoderConverter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
+        
 
         if network_metadata.precision.fp16:
             G_LOGGER.debug("Clamping FP16 weights for T5")
@@ -300,7 +276,7 @@ class T5EncoderConverter(ModelFileConverter):
         super().__init__(T5EncoderTorchFile, T5EncoderONNXFile, T5EncoderTRTEngine)
 
     def onnx_to_trt(
-        self, output_fpath: str, input_fpath: str, network_metadata: NetworkMetadata, batch_size: int
+        self, output_fpath: str, input_fpath: str, network_metadata: NetworkMetadata, profiles: List[Profile]
     ):
         """
         Override onnx_to_trt function from base.
@@ -314,7 +290,7 @@ class T5EncoderConverter(ModelFileConverter):
             del network_metadata_cp_dct["precision"]
             network_metadata = NetworkMetadata(**network_metadata_cp_dct, precision=Precision(fp16=False))
 
-        return super().onnx_to_trt(output_fpath, input_fpath, network_metadata, batch_size)
+        return super().onnx_to_trt(output_fpath, input_fpath, network_metadata, profiles)
 
     def torch_to_onnx(
         self, output_fpath: str, model: Module, network_metadata: NetworkMetadata
@@ -336,6 +312,12 @@ class T5EncoderConverter(ModelFileConverter):
         outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["encoder"]
 
         # Exports to ONNX
+        opt_args={}
+
+        version_major = int((torch.__version__).split('.')[0])
+        version_minor = int((torch.__version__).split('.')[1])
+        if version_major < 1 or (version_major == 1 and version_minor < 11):
+            opt_args['use_external_data_format'] = True
         torch.onnx._export(
             simplified_encoder,
             input_ids,
@@ -349,9 +331,9 @@ class T5EncoderConverter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
-
+        
         if network_metadata.precision.fp16:
             G_LOGGER.debug("Clamping FP16 weights for T5")
             move_t5_cast_op(output_fpath, output_fpath)

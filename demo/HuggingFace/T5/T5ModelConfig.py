@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -68,6 +69,23 @@ class T5Metadata(_T5Metadata, MetadataArgparseInteropMixin):
     def from_inference_args(args: argparse.Namespace):
         base_metadata = T5Metadata.from_args(args)
         return base_metadata._replace(precision=Precision(fp16=args.fp16))
+
+    @staticmethod
+    def add_benchmarking_args(parser: argparse.ArgumentParser) -> None:
+        benchmarking_group = parser.add_argument_group("benchmarking group")
+        benchmarking_group.add_argument(
+            "--input-seq-len",
+            type=int,
+            help="Specify fixed input sequence length for perf benchmarking. (default: max supported sequence length)",
+        )
+        benchmarking_group.add_argument(
+            "--output-seq-len",
+            type=int,
+            help="Specify fixed output sequence length for perf benchmarking. (default: max supported sequence length)",
+        )
+
+
+T5BenchmarkingArgs = namedtuple("T5BenchmarkingArgs", ["input_seq_len", "output_seq_len"])
 
 
 class T5ModelTRTConfig(NNConfig):

@@ -13,8 +13,8 @@
 
 ## Description
 
-This sample, sampleAlgorithmSelector, shows an example of how to use the algorithm selection API based on sampleMNIST.
-[sampleMNIST documentation] (https://docs.nvidia.com/deeplearning/sdk/tensorrt-sample-support-guide/index.html#mnist_sample)
+This sample, sampleAlgorithmSelector, shows an example of how to use the algorithm selection API based on sampleMNIST (
+[documentation](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sample-support-guide/index.html#mnist_sample)).
 
 This sample demonstrates the usage of `IAlgorithmSelector` to deterministically build TRT engines.
 It also shows the usage of `IAlgorithmSelector::selectAlgorithms` to define heuristics for selection of algorithms.
@@ -46,7 +46,6 @@ To verify whether the engine is operating correctly, this sample picks a 28x28 i
     export TRT_DATADIR=/usr/src/tensorrt/data
     pushd $TRT_DATADIR/mnist
     pip3 install Pillow
-    python3 download_pgms.py
     popd
     ```
 

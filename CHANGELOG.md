@@ -1,5 +1,56 @@
 # TensorRT OSS Release Changelog
 
+## [22.05](https://github.com/NVIDIA/TensorRT/releases/tag/22.05) - 2022-05-13
+### Added
+- Disentangled attention plugin for DeBERTa
+- DMHA (multiscaleDeformableAttnPlugin) plugin for DDETR
+- Performance benchmarking mode to HuggingFace demo
+
+### Changed
+- Updated base TensorRT version to 8.2.5.1
+- Updated onnx-graphsurgeon v0.3.19 [CHANGELOG](tools/onnx-graphsurgeon/CHANGELOG.md)
+- fp16 support for pillarScatterPlugin
+- [#1939](https://github.com/NVIDIA/TensorRT/issues/i1939) - Fixed path in quantization `classification_flow`
+- Fixed GPT2 onnx export failure due to 2G limitation
+- Use axis0 as default for deconv in pytorch-quantization toolkit
+- Updated onnx export script for CoordConvAC sample
+- Install devtoolset-8 for updated g++ version in CentOS7 container
+
+### Removed
+- Usage of deprecated TensorRT APIs in samples removed
+- `quant_bert.py` module removed from pytorch-quantization
+
+## [22.04](https://github.com/NVIDIA/TensorRT/releases/tag/22.04) - 2022-04-13
+### Added
+- TensorRT Engine Explorer v0.1.0 [README](tools/experimental/trt-engine-explorer/README.md)
+- Detectron 2 Mask R-CNN R50-FPN python [sample](samples/python/detectron2/README.md)
+- Model export script for sampleOnnxMnistCoordConvAC
+
+### Changed
+- Updated base TensorRT version to 8.2.4.2
+- Updated copyright headers with SPDX identifiers
+- Updated onnx-graphsurgeon v0.3.17 [CHANGELOG](tools/onnx-graphsurgeon/CHANGELOG.md)
+- `PyramidROIAlign` plugin refactor and bug fixes
+- Fixed `MultilevelCropAndResize` crashes on Windows
+- [#1583](https://github.com/NVIDIA/TensorRT/issues/1583) - sublicense ieee/half.h under Apache2
+- Updated demo/BERT performance tables for rel-8.2
+- [#1774](https://github.com/NVIDIA/TensorRT/issues/1774) Fix python hangs at IndexErrors when TF is imported after TensorRT
+- Various bugfixes in demos - BERT, Tacotron2 and HuggingFace GPT/T5 notebooks
+- Cleaned up sample READMEs
+
+### Removed
+- sampleNMT removed from samples
+
+## [22.03](https://github.com/NVIDIA/TensorRT/releases/tag/22.03) - 2022-03-23
+### Added
+- EfficientDet sample enhancements
+  - Added support for EfficientDet Lite and AdvProp models.
+  - Added dynamic batch support.
+  - Added mixed precision engine builder.
+
+### Changed
+- Better decoupling of HuggingFace demo tests
+
 ## [22.02](https://github.com/NVIDIA/TensorRT/releases/tag/22.02) - 2022-02-04
 ### Added
 - New plugins: [decodeBbox3DPlugin](plugin/decodeBbox3DPlugin), [pillarScatterPlugin](plugin/pillarScatterPlugin), and [voxelGeneratorPlugin](plugin/voxelGeneratorPlugin)

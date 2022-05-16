@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,9 +42,15 @@ TensorRT Initialization
 TRT_LOGGER = trt.Logger(trt.Logger.INFO)
 trt_version = [int(n) for n in trt.__version__.split('.')]
 
-handle = ctypes.CDLL("libnvinfer_plugin.so", mode=ctypes.RTLD_GLOBAL)
+plugin_lib_name = "libnvinfer_plugin.so"
+env_name_to_add_path = "LD_LIBRARY_PATH"
+if sys.platform == "win32":
+    plugin_lib_name = "nvinfer_plugin.dll"
+    env_name_to_add_path = "PATH"
+
+handle = ctypes.CDLL(plugin_lib_name, mode=ctypes.RTLD_GLOBAL)
 if not handle:
-    raise RuntimeError("Could not load plugin library. Is `libnvinfer_plugin.so` on your LD_LIBRARY_PATH?")
+    raise RuntimeError("Could not load plugin library. Is `{}` on your {}?".format(plugin_lib_name, env_name_to_add_path))
 
 trt.init_libnvinfer_plugins(TRT_LOGGER, "")
 plg_registry = trt.get_plugin_registry()
@@ -394,7 +401,7 @@ def emb_layernorm(builder, network, config, weights_dict, builder_config, sequen
     set_output_name(emb_layer, "embeddings_", "output")
     return emb_layer
 
-def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
+def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num, verbose):
     explicit_batch_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
     with trt.Builder(TRT_LOGGER) as builder, builder.create_network(explicit_batch_flag) as network, builder.create_builder_config() as builder_config:
@@ -409,16 +416,19 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
                 builder_config.int8_calibrator = calibrator
         if config.use_strict:
             builder_config.set_flag(trt.BuilderFlag.STRICT_TYPES)
-    
+
+        if verbose:
+            builder_config.profiling_verbosity = trt.ProfilingVerbosity.DETAILED
+
         if config.use_sparsity:
             TRT_LOGGER.log(TRT_LOGGER.INFO, "Setting sparsity flag on builder_config.")
             builder_config.set_flag(trt.BuilderFlag.SPARSE_WEIGHTS)
 
-        # speed up the engine build for trt major version >= 8 
+        # speed up the engine build for trt major version >= 8
         # 1. disable cudnn tactic
         # 2. load global timing cache
         if trt_version[0] >= 8:
-            tactic_source = 1 << int(trt.TacticSource.CUBLAS) | 1 << int(trt.TacticSource.CUBLAS_LT)
+            tactic_source = builder_config.get_tactic_sources() & ~(1 << int(trt.TacticSource.CUDNN))
             builder_config.set_tactic_sources(tactic_source)
             if config.timing_cache != None:
                 if os.path.exists(config.timing_cache):
@@ -480,7 +490,7 @@ def generate_calibration_cache(sequence_lengths, workspace_size, config, weights
     config.use_fp16 = False
     config.is_calib_mode = True
 
-    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num) as engine:
+    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num, False) as engine:
         TRT_LOGGER.log(TRT_LOGGER.INFO, "calibration cache generated in {:}".format(calibrationCacheFile))
 
     config.use_fp16 = saved_use_fp16
@@ -510,6 +520,7 @@ def main():
     parser.add_argument("-imh", "--force-int8-multihead", action="store_true", help="Run multi-head attention with INT8 (FP32 or FP16 by default) input and output", required=False)
     parser.add_argument("-sp", "--sparse", action="store_true", help="Indicates that model is sparse", required=False)
     parser.add_argument("-tcf", "--timing-cache-file", help="Path to tensorrt build timeing cache file, only available for tensorrt 8.0 and later", required=False)
+    parser.add_argument("--verbose", action="store_true", help="Turn on verbose logger and set profiling verbosity to DETAILED", required=False)
 
     args, _ = parser.parse_known_args()
     args.batch_size = args.batch_size or [1]
@@ -520,6 +531,9 @@ def main():
         raise RuntimeError("--force-int8-multihead option is only supported on Turing+ GPU.")
     if cc[0] * 10 + cc[1] < 72 and args.force_int8_skipln:
         raise RuntimeError("--force-int8-skipln option is only supported on Xavier+ GPU.")
+
+    if args.verbose:
+        TRT_LOGGER.min_severity = TRT_LOGGER.VERBOSE
 
     bert_config_path = os.path.join(args.config_dir, "bert_config.json")
     TRT_LOGGER.log(TRT_LOGGER.INFO, "Using configuration file: {:}".format(bert_config_path))
@@ -541,7 +555,7 @@ def main():
     else:
         raise RuntimeError("You need either specify TF checkpoint using option --ckpt or ONNX using option --onnx to build TRT BERT model.")
 
-    with build_engine(args.batch_size, args.workspace_size, args.sequence_length, config, weights_dict, args.squad_json, args.vocab_file, calib_cache, args.calib_num) as engine:
+    with build_engine(args.batch_size, args.workspace_size, args.sequence_length, config, weights_dict, args.squad_json, args.vocab_file, calib_cache, args.calib_num, args.verbose) as engine:
         TRT_LOGGER.log(TRT_LOGGER.VERBOSE, "Serializing Engine...")
         serialized_engine = engine.serialize()
         TRT_LOGGER.log(TRT_LOGGER.INFO, "Saving Engine to {:}".format(args.output))

@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -99,6 +100,8 @@ class Graph(object):
         doc_string=None,
         opset=None,
         import_domains=None,
+        producer_name: str = None,
+        producer_version: str = None,
     ):
         """
         Args:
@@ -108,6 +111,8 @@ class Graph(object):
             name (str): The name of the graph. Defaults to "onnx_graphsurgeon_graph".
             doc_string (str): A doc_string for the graph. Defaults to "".
             opset (int): The ONNX opset to use when exporting this graph.
+            producer_name (str): The name of the tool used to generate the model. Defaults to "".
+            producer_version (str): The version of the generating tool. Defaults to "".
         """
         self.nodes = misc.default_value(nodes, [])
         self.inputs = list(misc.default_value(inputs, []))
@@ -118,6 +123,8 @@ class Graph(object):
 
         self.doc_string = misc.default_value(doc_string, "")
         self.opset = misc.default_value(opset, Graph.DEFAULT_OPSET)
+        self.producer_name = misc.default_value(producer_name, "")
+        self.producer_version = misc.default_value(producer_version, "")
         self.import_domains = import_domains
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
@@ -460,7 +467,9 @@ class Graph(object):
 
         return tensor_map
 
-    def fold_constants(self, fold_shapes=True, recurse_subgraphs=True, partitioning=None, error_ok=True):
+    def fold_constants(
+        self, fold_shapes=True, recurse_subgraphs=True, partitioning=None, error_ok=True, flatten_subgraphs=True
+    ):
         """
         Folds constants in-place in the graph. The graph must be topologically sorted prior to
         calling this function (see `toposort()`).
@@ -495,6 +504,9 @@ class Graph(object):
                     Whether inference errors should be suppressed.
                     When this is enabled, any errors encountered during inference will be re-raised.
                     Defaults to True.
+            flatten_subgraphs (bool):
+                    Whether to flatten subgraphs where possible. For example, `If` nodes with a constant condition
+                    can be flattened into the parent graph.
 
         Returns:
             self
@@ -502,10 +514,10 @@ class Graph(object):
         import onnxruntime as rt
         from onnx_graphsurgeon.exporters.onnx_exporter import export_onnx
 
-        ORT_PROVIDERS=['CPUExecutionProvider']
         PARTITIONING_MODES = [None, "basic", "recursive"]
         if partitioning not in PARTITIONING_MODES:
             G_LOGGER.critical("Argument for parameter 'partitioning' must be one of: {:}".format(PARTITIONING_MODES))
+        ORT_PROVIDERS = ["CPUExecutionProvider"]
 
         # First perform shape tensor cast elision on the graph prior to other constant folding
         # Search for Cast(s) (from int -> float) -> intermediate operator (with float constants) -> Cast(s) (back to int)
@@ -661,7 +673,7 @@ class Graph(object):
 
         def get_scalar_value(tensor):
             """
-            Gets the scalar value of a tensor with a single item
+            Gets the scalar value of a constant tensor with a single item
             """
             if not tensor.shape:
                 return tensor.values
@@ -796,7 +808,9 @@ class Graph(object):
 
                 try:
                     # Determining types is not trivial, and ONNX-RT does its own type inference.
-                    sess = rt.InferenceSession(export_onnx(part, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS)
+                    sess = rt.InferenceSession(
+                        export_onnx(part, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS
+                    )
                     values = sess.run(names, {})
                 except Exception as err:
                     G_LOGGER.warning("Inference failed for subgraph: {:}. Note: Error was:\n{:}".format(part.name, err))
@@ -843,7 +857,9 @@ class Graph(object):
             else:
                 names = [t.name for t in graph_clone.outputs]
                 try:
-                    sess = rt.InferenceSession(export_onnx(graph_clone, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS)
+                    sess = rt.InferenceSession(
+                        export_onnx(graph_clone, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS
+                    )
                     values = sess.run(names, {})
                     constant_values.update({name: val for name, val in zip(names, values)})
                 except Exception as err:
@@ -855,7 +871,7 @@ class Graph(object):
                     if not error_ok:
                         raise
         elif not constant_values:
-            G_LOGGER.info(
+            G_LOGGER.debug(
                 "Could not find any nodes in this graph ({:}) that can be folded. "
                 "This could mean that constant folding has already been run on this graph. "
                 "Skipping.".format(self.name)
@@ -879,6 +895,36 @@ class Graph(object):
 
         if recurse_subgraphs:
             fold_subgraphs()
+
+        if flatten_subgraphs:
+            # Flatten conditional subgraphs
+            index = 0
+            while index < len(self.nodes):
+                node = self.nodes[index]
+                if node.op == "If" and isinstance(node.inputs[0], Constant):
+                    G_LOGGER.debug("Flattening conditional: {:}".format(node))
+                    cond = get_scalar_value(node.inputs[0])
+                    subgraph = node.attrs["then_branch"] if cond else node.attrs["else_branch"]
+                    # Need to add a suffix to subgraph tensors so they don't collide with outer graph tensors
+                    for tensor in subgraph._local_tensors().values():
+                        tensor.name += "_subg_{:}_{:}".format(index, subgraph.name)
+
+                    # The subgraph outputs correspond to the If node outputs. Only the latter are visible
+                    # in the parent graph, so we rebind the producer nodes of the subgraph outputs to point
+                    # to the output tensors of the If instead.
+                    for node_out, subgraph_out in zip(node.outputs, subgraph.outputs):
+                        node_out.inputs.clear()
+                        for producer in subgraph_out.inputs:
+                            for tensor_idx, out_tensor in enumerate(producer.outputs):
+                                if out_tensor == subgraph_out:
+                                    producer.outputs[tensor_idx] = node_out
+
+                    # Copy subgraph nodes into parent graph at the index of the If.
+                    del self.nodes[index]
+                    self.nodes[index:index] = subgraph.nodes
+                    index += len(subgraph.nodes) - 1
+
+                index += 1
 
         return self
 

@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -78,24 +79,11 @@ class GPT2ONNXFile(ONNXModelFile):
 
 # TRT Engine File Encoding #
 class GPT2TRTEngine(TRTEngineFile):
-    def __init__(self, model, network_metadata, batch_size = 1):
-        super().__init__(model, GPT2Converter, network_metadata, batch_size = batch_size)
+    def __init__(self, model, network_metadata):
+        super().__init__(model, GPT2Converter, network_metadata)
 
     def use_obey_precision_constraints(self):
         return self.network_metadata.precision.fp16
-
-    def get_dynamic_shape_profiles(self):
-        max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[
-            self.network_metadata.variant
-        ]
-        profile = Profile()
-        profile.add(
-            "input_ids",
-            min=(self.batch_size, 1),
-            opt=(self.batch_size, max_sequence_length // 2),
-            max=(self.batch_size, max_sequence_length),
-        )
-        return [profile]
 
     def get_network_definition(self, network_definition):
 
@@ -164,6 +152,12 @@ class GPT2Converter(ModelFileConverter):
         ]
 
         # Exports to ONNX
+        opt_args={}
+
+        version_major = int((torch.__version__).split('.')[0])
+        version_minor = int((torch.__version__).split('.')[1])
+        if version_major < 1 or (version_major == 1 and version_minor < 11):
+            opt_args['use_external_data_format'] = True
         torch.onnx._export(
             gpt2_model,
             input_ids,
@@ -176,6 +170,6 @@ class GPT2Converter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
         return GPT2ONNXFile(output_fpath, network_metadata)

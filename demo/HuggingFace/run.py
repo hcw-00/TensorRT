@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +22,7 @@ Requires Python 3.5+
 
 import os
 import sys
+import pickle
 import argparse
 import importlib
 
@@ -37,7 +39,8 @@ sys.path.append(ROOT_DIR)
 WRAPPER_RUN_ACTION = "run"
 WRAPPER_LIST_ACTION = "list"
 WRAPPER_COMPARE_ACTION = "compare"
-WRAPPER_ACTIONS = [WRAPPER_RUN_ACTION, WRAPPER_LIST_ACTION, WRAPPER_COMPARE_ACTION]
+WRAPPER_BENCHMARK_ACTION = "benchmark"
+WRAPPER_ACTIONS = [WRAPPER_RUN_ACTION, WRAPPER_LIST_ACTION, WRAPPER_COMPARE_ACTION, WRAPPER_BENCHMARK_ACTION]
 
 # NNDF
 from NNDF.general_utils import process_per_result_entries, process_results, register_network_folders, RANDOM_SEED
@@ -92,13 +95,54 @@ class RunAction(NetworkScriptAction):
     def execute(self, args: argparse.Namespace):
         module = self.load_script(args.script, args)
         module.RUN_CMD._parser = self.parser
-        os.chdir(args.network)
-        print(module.RUN_CMD())
+
+        old_path = os.getcwd()
+        # Execute script in each relevant folder
+        try:
+            os.chdir(args.network)
+            results = module.RUN_CMD()
+        finally:
+            os.chdir(old_path)
+
+        # Output to terminal
+        print(results)
+
+        # Dump results as a pickle file if applicable.
+        # Useful for testing or post-processing.
+        if args.save_output_fpath:
+            with open(args.save_output_fpath, "wb") as f:
+                pickle.dump(results, f)
+
         return 0
 
     def add_args(self, parser: argparse.ArgumentParser):
         super().add_args(parser)
         run_group = parser.add_argument_group("run args")
+        run_group.add_argument("script", choices=self.PER_NETWORK_SCRIPTS)
+        run_group.add_argument("--save-output-fpath", "-o", default=None, help="Outputs a pickled NetworkResult object. See networks.py for definition.")
+
+
+class BenchmarkAction(NetworkScriptAction):
+    def execute(self, args: argparse.Namespace):
+        module = self.load_script(args.script, args)
+        module.RUN_CMD._parser = self.parser
+
+        old_path = os.getcwd()
+        # Execute script in each relevant folder
+        try:
+            os.chdir(args.network)
+            results = module.RUN_CMD.run_benchmark()
+        finally:
+            os.chdir(old_path)
+
+        # Output to terminal
+        print(results)
+
+        return 0
+
+    def add_args(self, parser: argparse.ArgumentParser):
+        super().add_args(parser)
+        run_group = parser.add_argument_group("benchmark args")
         run_group.add_argument("script", choices=self.PER_NETWORK_SCRIPTS)
 
 
@@ -194,6 +238,7 @@ def get_action(
         WRAPPER_COMPARE_ACTION: CompareAction,
         WRAPPER_LIST_ACTION: ListAction,
         WRAPPER_RUN_ACTION: RunAction,
+        WRAPPER_BENCHMARK_ACTION: BenchmarkAction,
     }[action_name](networks, parser)
 
 
@@ -231,9 +276,6 @@ def get_default_parser(
 def main() -> None:
     """
     Parses network folders and responsible for passing --help flags to subcommands if --network is provided.
-
-    Returns:
-        None
     """
     # Get all available network scripts
     networks = register_network_folders(os.getcwd())

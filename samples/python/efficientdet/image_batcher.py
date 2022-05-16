@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +17,7 @@
 
 import os
 import sys
+import random
 
 import numpy as np
 from PIL import Image
@@ -26,7 +28,7 @@ class ImageBatcher:
     Creates batches of pre-processed images.
     """
 
-    def __init__(self, input, shape, dtype, max_num_images=None, exact_batches=False, preprocessor="EfficientDet"):
+    def __init__(self, input, shape, dtype, max_num_images=None, exact_batches=False, preprocessor="EfficientDet", shuffle_files=False):
         """
         :param input: The input directory to read images from.
         :param shape: The tensor shape of the batch to prepare, either in NCHW or NHWC format.
@@ -36,6 +38,7 @@ class ImageBatcher:
         size. If false, it will pad the final batch with zeros to reach the batch size. If true, it will *remove* the
         last few images in excess of a batch size multiple, to guarantee batches are exact (useful for calibration).
         :param preprocessor: Set the preprocessor to use, depending on which network is being used.
+        :param shuffle_files: Shuffle the list of files before batching.
         """
         # Find images in the given input path
         input = os.path.realpath(input)
@@ -49,6 +52,9 @@ class ImageBatcher:
         if os.path.isdir(input):
             self.images = [os.path.join(input, f) for f in os.listdir(input) if is_image(os.path.join(input, f))]
             self.images.sort()
+            if shuffle_files:
+                random.seed(47)
+                random.shuffle(self.images)
         elif os.path.isfile(input):
             if is_image(input):
                 self.images.append(input)
@@ -157,7 +163,6 @@ class ImageBatcher:
         for i, batch_images in enumerate(self.batches):
             batch_data = np.zeros(self.shape, dtype=self.dtype)
             batch_scales = [None] * len(batch_images)
-            print("BATCH SCALES: ", batch_scales)
             for i, image in enumerate(batch_images):
                 self.image_index += 1
                 batch_data[i], batch_scales[i] = self.preprocess_image(image)
