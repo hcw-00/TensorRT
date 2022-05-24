@@ -30,15 +30,23 @@ network = builder.create_network(1 <<
        int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
 
 config = builder.create_builder_config()
-config.max_workspace_size = 2**20
+config.max_workspace_size = 2**28
 
 input_layer = network.add_input(name="input_layer", dtype=trt.float32, shape=(1, 1))
 test_plugin = network.add_plugin_v2(inputs=[input_layer], plugin=get_trt_plugin("MyTest_TRT"))
 test_plugin.get_output(0).name = "outputs"
 network.mark_output(tensor=test_plugin.get_output(0))
 
+profile = builder.create_optimization_profile()
+profile.set_shape("input_layer", (1, 1), (1, 1), (1, 1)) 
+config.add_optimization_profile(profile)
+
 
 serialized_engine = builder.build_serialized_network(network, config)
+
+# engine_path = "my.engine"
+# with open(engine_path, 'wb') as f:
+#     f.write(serialized_engine)
 
 runtime = trt.Runtime(TRT_LOGGER)
 engine = runtime.deserialize_cuda_engine(serialized_engine)
@@ -115,13 +123,3 @@ print(outs)
 # stream.synchronize()
 
 # print("test complete")
-
-'''
-Hi,
-
-You would need to update the plugin.
-The plugin that we ship is derived from IPluginV2, however, the OSS plugin is IPluginV2Ext, 
-so you use TRT OSS plugin code instead.
-
-Thanks
-'''

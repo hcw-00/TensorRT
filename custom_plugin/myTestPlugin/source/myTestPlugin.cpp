@@ -122,9 +122,9 @@ void MyTest::destroy() noexcept
     delete this;
 }
 
-IPluginV2Ext* MyTest::clone() const noexcept
+IPluginV2* MyTest::clone() const noexcept
 {
-    IPluginV2Ext* plugin = new MyTest(mCoefficient);
+    IPluginV2* plugin = new MyTest(mCoefficient);
     plugin->setPluginNamespace(mNamespace.c_str());
     return plugin;
 }
@@ -153,7 +153,7 @@ const PluginFieldCollection* MyTestPluginCreator::getFieldNames() noexcept
     return &mFC;
 }
 
-IPluginV2Ext* MyTestPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2* MyTestPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
 {
     const PluginField* fields = fc->fields;
     ASSERT(fc->nbFields == 1);
@@ -163,7 +163,7 @@ IPluginV2Ext* MyTestPluginCreator::createPlugin(const char* name, const PluginFi
     return new MyTest(coefficient);
 }
 
-IPluginV2Ext* MyTestPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept
+IPluginV2* MyTestPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept
 {
     // This object will be deleted when the network is destroyed, which will
     // call LReluPlugin::destroy()
